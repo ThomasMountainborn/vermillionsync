@@ -87,7 +87,7 @@ async def upload(request: Request, file: UploadFile, db: Session = Depends(get_d
         "submitted_at": datetime.now(UTC)
     }
 
-@router.get("/download/{code}")
+@router.get("/download/{name}")
 async def download(name: str, db: Session = Depends(get_db)):
     statement = select(UploadedFile).where(UploadedFile.original_filename == name)
     file_record = db.execute(statement).scalar_one_or_none()
@@ -98,9 +98,7 @@ async def download(name: str, db: Session = Depends(get_db)):
     if file_record.expires_at and file_record.expires_at < datetime.now(UTC):
         raise HTTPException(status_code=404, detail="File not found")
 
-    extension = Path(file_record.original_filename)
-
-    path= Path("./data/uploads/") / f"{name}"
+    path = Path("./data/uploads/") / f"{name}"
     filename= file_record.original_filename
 
     if not path.exists():
