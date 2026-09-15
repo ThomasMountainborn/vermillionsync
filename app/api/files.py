@@ -2,7 +2,7 @@ import shutil
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,8 +22,8 @@ router = APIRouter()
 async def ping():
     return {"ping":"pong"}
 
-@router.post("/upload/")
-async def upload(request: Request, file: UploadFile, db: Session = Depends(get_db)):   
+@router.post("/upload")
+async def upload(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):   
     delta = timedelta(minutes=2)
     SIZE_LIMIT = 5*1024*1024
     content_length = request.headers.get("content-length")
