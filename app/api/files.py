@@ -7,7 +7,6 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.security import get_current_user
 from app.db import get_db
 from app.models.file import UploadedFile
 
