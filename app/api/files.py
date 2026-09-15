@@ -22,57 +22,6 @@ router = APIRouter()
 async def ping():
     return {"ping":"pong"}
 
-@router.post("/stream")
-async def stream(request: Request, db: Session = Depends(get_db)):
-    filename = request.headers['filename']
-    upload_dir = Path("./data/uploads")
-    try:
-        # create dir if it doesnt exist
-        upload_dir.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        raise HTTPException(status_code=500, detail="Failed to prepare upload directory")
-
-    # complete file path(relative) to the file
-    destination = upload_dir / f"{filename}"
-    # Delete the existing file. 
-    destination.unlink(missing_ok=True)
-
-    try:
-        with destination.open("wb") as buffer:
-            async for chunk in request.stream():
-                await buffer.write(chunk)
-    except Exception:
-            raise HTTPException(status_code=500, detail="Failed to save file")
-
-    delta = timedelta(minutes=2)
-    uploaded_file = get_existing_record(filename, db)
-    createdNewRecord = False
-    if uploaded_file is None:
-        createdNewRecord = True
-        uploaded_file = UploadedFile(
-                                original_filename=filename,
-                                expires_at = datetime.now(UTC) + delta if delta else None,
-                                )
-    else:
-        uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
-
-    try:
-        if createdNewRecord:
-            db.add(uploaded_file)
-        db.commit()
-    except Exception:
-        destination.unlink(missing_ok=True) # remove orphaned file on disk
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to commit to DB.")
-    
-    return {
-        "filename": filename,
-        "saved_to": str(destination),
-        "valid_till": uploaded_file.expires_at,
-        "submitted_at": datetime.now(UTC)
-    }
-
-
 @router.post("/upload")
 async def upload(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):   
     delta = timedelta(minutes=2)
