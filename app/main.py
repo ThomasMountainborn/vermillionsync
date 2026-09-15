@@ -25,6 +25,4 @@ async def health():
     return { "status" : "ok" }
 
 app.include_router(files_router)
-app.include_router(auth_router)
-
 app.mount("/", StaticFiles(directory="static", html=True), name="TFS")

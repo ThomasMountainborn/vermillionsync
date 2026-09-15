@@ -9,11 +9,7 @@ from app.models.file import UploadedFile
 def cleanUp():
     with Session(engine) as session:
         stmnt = select(UploadedFile).where(
-            or_(
-                UploadedFile.downloads_remaining == 0,
-                # UploadedFile.expires_at < datetime.now(UTC)
-                UploadedFile.expires_at < datetime.utcnow()
-            )
+            UploadedFile.expires_at < datetime.now(UTC)
         )
         
         result = session.execute(stmnt).scalars().all()
@@ -25,7 +21,7 @@ def cleanUp():
 
         for file in result:
             # complete filename on disk
-            name = file.short_code + Path(file.original_filename).suffix
+            name = file.original_filename
             file_path = upload_dir / name
             # no need to wrap in try block as it is safe automatically
             file_path.unlink(missing_ok=True)

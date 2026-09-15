@@ -1,7 +1,5 @@
 import shutil
-import uuid
 from datetime import UTC, datetime, timedelta, timezone
-from enum import Enum
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
@@ -12,36 +10,12 @@ from sqlalchemy.orm import Session
 from app.api.security import get_current_user
 from app.db import get_db
 from app.models.file import UploadedFile
-from app.models.user import User
 
 
-def generate_short_code(length: int = 8):
-    return uuid.uuid4().hex[:length]
-
-def check_db(code: str, db: Session):
-    statement = select(UploadedFile).where(UploadedFile.short_code == code)
+def get_existing_record(name: str, db: Session):
+    statement = select(UploadedFile).where(UploadedFile.original_filename == name)
     result = db.execute(statement).scalar_one_or_none()
-    # F - if not found(None is returned)
-    return result is not None 
-
-def decrement_limit(file_record: UploadedFile, db: Session):
-    # do not block downloads
-    if file_record.downloads_remaining is None:
-        # shouldnt be blocked
-        return
-    # block downloads
-    if file_record.downloads_remaining == 0:
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    # decrement
-    file_record.downloads_remaining -= 1
-    db.commit()
-
-class ExpiryOption(Enum):
-    one_hour = "1h"
-    one_day = "1d"
-    one_week = "1w"
-    never = "never"
+    return result
 
 router = APIRouter()
 
@@ -50,35 +24,21 @@ async def ping():
     return {"ping":"pong"}
 
 @router.post("/upload/")
-async def upload(request: Request, file: UploadFile, current_user: User = Depends(get_current_user), download_limit: int | None = Form(default=5), expiry: ExpiryOption = Form(ExpiryOption.one_day), db: Session = Depends(get_db)):
-
-    expiry_map = {
-        ExpiryOption.one_hour: timedelta(hours=1),
-        ExpiryOption.one_day: timedelta(days=1),
-        ExpiryOption.one_week: timedelta(weeks=1),
-        ExpiryOption.never: None,
-    }
-    delta = expiry_map[expiry]
-    GB_IN_BYTES = 1073741824
+async def upload(request: Request, file: UploadFile, db: Session = Depends(get_db)):   
+    delta = timedelta(minutes=2)
+    SIZE_LIMIT = 5*1024*1024
     content_length = request.headers.get("content-length")
 
-    if content_length and int(content_length) > GB_IN_BYTES * 2:
-        raise HTTPException(status_code=413, detail="File size exceeds 2GB.")
+    if content_length and int(content_length) > SIZE_LIMIT:
+        raise HTTPException(status_code=413, detail="File size limit exceeded.")
 
     # check if empty file
     if file.size == 0:
         raise HTTPException(status_code=400, detail="Empty file not allowed.")
     
     # check if file is too large (compared in BYTES)
-    if file.size > (2 * GB_IN_BYTES):
-        raise HTTPException(status_code=413, detail="File size exceeds 2GB.")
-
-    # create an initial code
-    code = generate_short_code()
-
-    # generate a unique code
-    while check_db(code, db):
-        code = generate_short_code()
+    if file.size > SIZE_LIMIT:
+        raise HTTPException(status_code=413, detail="File size limit exceeded.")
 
     # path to store files at
     upload_dir = Path("./data/uploads")
@@ -89,11 +49,10 @@ async def upload(request: Request, file: UploadFile, current_user: User = Depend
     except OSError:
         raise HTTPException(status_code=500, detail="Failed to prepare upload directory")
 
-    # get file extension
-    extension = Path(file.filename).suffix
-
     # complete file path(relative) to the file
-    destination = upload_dir / f"{code}{extension}"
+    destination = upload_dir / f"{file.filename}"
+    # Delete the existing file. 
+    destination.unlink(missing_ok=True)
 
     try:
         # copy file data in chunks in bytes so huge data is not loaded into RAM
@@ -102,15 +61,20 @@ async def upload(request: Request, file: UploadFile, current_user: User = Depend
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save file")
     
-    uploaded_file = UploadedFile(short_code=code, 
-                                owner_id=current_user.id,
+    uploaded_file = get_existing_record(file.filename, db)
+    createdNewRecord = False
+    if uploaded_file is None:
+        createdNewRecord = True
+        uploaded_file = UploadedFile(
                                 original_filename=file.filename,
-                                expires_at= datetime.now(UTC) + delta if delta else None,
-                                downloads_remaining= download_limit
+                                expires_at = datetime.now(UTC) + delta if delta else None,
                                 )
+    else:
+        uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
 
     try:
-        db.add(uploaded_file)
+        if createdNewRecord:
+            db.add(uploaded_file)
         db.commit()
     except Exception:
         destination.unlink(missing_ok=True) # remove orphaned file on disk
@@ -119,33 +83,26 @@ async def upload(request: Request, file: UploadFile, current_user: User = Depend
     
     return {
         "filename": file.filename,
-        "short_code": code,
         "saved_to": str(destination),
         "valid_till": uploaded_file.expires_at,
         "submitted_at": datetime.now(UTC)
     }
 
 @router.get("/download/{code}")
-async def download(code: str, db: Session = Depends(get_db)):
-    statement = select(UploadedFile).where(UploadedFile.short_code == code)
+async def download(name: str, db: Session = Depends(get_db)):
+    statement = select(UploadedFile).where(UploadedFile.original_filename == name)
     file_record = db.execute(statement).scalar_one_or_none()
 
     if file_record is None:
         raise HTTPException(status_code=404, detail="File not found")
 
-    decrement_limit(file_record, db)
-
-    # compatiblw with sqlite: depricated
-    # if file_record.expires_at and file_record.expires_at < datetime.utcnow():
-    # compatible with postgreSQL
     if file_record.expires_at and file_record.expires_at < datetime.now(UTC):
         raise HTTPException(status_code=404, detail="File not found")
 
-    extension = Path(file_record.original_filename).suffix
+    extension = Path(file_record.original_filename)
 
-    path= Path("./data/uploads/") / f"{code}{extension}"
+    path= Path("./data/uploads/") / f"{name}"
     filename= file_record.original_filename
-
 
     if not path.exists():
         db.delete(file_record)
