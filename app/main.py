@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.api.auth import router as auth_router
 from app.api.files import router as files_router
 from app.db import create_db_tables
 from app.services.cleanup import scheduler
