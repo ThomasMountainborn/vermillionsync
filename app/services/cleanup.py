@@ -17,16 +17,15 @@ def cleanUp():
         for file in result:
             session.delete(file)
         
-        upload_dir = Path("./data/uploads")
-
-        for file in result:
-            # complete filename on disk
-            name = file.original_filename
-            file_path = upload_dir / name
-            # no need to wrap in try block as it is safe automatically
-            file_path.unlink(missing_ok=True)
-
         session.commit()
+
+    upload_dir = Path("./data/uploads")
+    for file in result:
+        # complete filename on disk
+        name = file.original_filename
+        file_path = upload_dir / name
+        # no need to wrap in try block as it is safe automatically
+        file_path.unlink(missing_ok=True)
 
 
 scheduler = BackgroundScheduler()
