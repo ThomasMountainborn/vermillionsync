@@ -30,4 +30,4 @@ def cleanUp(db: Session = Depends(get_db)):
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(cleanUp, "interval", minutes=1)
+scheduler.add_job(cleanUp, "interval", seconds=1)
