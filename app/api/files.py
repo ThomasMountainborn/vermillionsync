@@ -1,6 +1,7 @@
 import shutil
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+import logging
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
@@ -18,6 +19,7 @@ def get_existing_record(name: str, db: Session):
     return result
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/ping")
 async def ping():
@@ -61,16 +63,19 @@ async def upload(request: Request, file: UploadFile = File(...)):
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save file")
 
+    logger.info(f"File {file.filename} copied, updating database...")
     with Session(engine) as db:
         uploaded_file = get_existing_record(file.filename, db)
         createdNewRecord = False
         if uploaded_file is None:
             createdNewRecord = True
+            logger.info("New record created")
             uploaded_file = UploadedFile(
                                     original_filename=file.filename,
                                     expires_at = datetime.now(UTC) + delta if delta else None,
                                     )
         else:
+            logger.info("Existing record updated")
             uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
 
         try:
