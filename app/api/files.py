@@ -26,7 +26,7 @@ async def ping():
 @router.post("/upload")
 async def upload(request: Request, file: UploadFile = File(...)):   
     try:
-        delta = timedelta(minutes=30)
+        delta = timedelta(seconds=90)
         SIZE_LIMIT = 10*1024*1024
         content_length = request.headers.get("content-length")
 
