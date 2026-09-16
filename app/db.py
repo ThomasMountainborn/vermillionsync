@@ -3,7 +3,7 @@ from sqlalchemy.orm import DeclarativeBase, Session
 
 db_url = "postgresql://tfs:tfs@db:5432/tfs"
 
-engine = create_engine(db_url)
+engine = create_engine(db_url, echo_pool="debug")
 
 # tells that any class inheriting from this is a db table
 class Base(DeclarativeBase):
