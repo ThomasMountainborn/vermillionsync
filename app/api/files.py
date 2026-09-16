@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.db import engine
 from app.models.file import UploadedFile
 
 
@@ -23,7 +24,7 @@ async def ping():
     return {"ping":"pong"}
 
 @router.post("/upload")
-async def upload(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):   
+async def upload(request: Request, file: UploadFile = File(...)):   
     try:
         delta = timedelta(minutes=30)
         SIZE_LIMIT = 10*1024*1024
@@ -60,33 +61,34 @@ async def upload(request: Request, file: UploadFile = File(...), db: Session = D
                 shutil.copyfileobj(file.file, buffer)
         except Exception:
             raise HTTPException(status_code=500, detail="Failed to save file")
-        
-        uploaded_file = get_existing_record(file.filename, db)
-        createdNewRecord = False
-        if uploaded_file is None:
-            createdNewRecord = True
-            uploaded_file = UploadedFile(
-                                    original_filename=file.filename,
-                                    expires_at = datetime.now(UTC) + delta if delta else None,
-                                    )
-        else:
-            uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
 
-        try:
-            if createdNewRecord:
-                db.add(uploaded_file)
-            db.commit()
-        except Exception:
-            destination.unlink(missing_ok=True) # remove orphaned file on disk
-            db.rollback()
-            raise HTTPException(status_code=500, detail="Failed to commit to DB.")
-        
-        return {
-            "filename": file.filename,
-            "saved_to": str(destination),
-            "valid_till": uploaded_file.expires_at,
-            "submitted_at": datetime.now(UTC)
-        }
+        with Session(engine) as db:
+            uploaded_file = get_existing_record(file.filename, db)
+            createdNewRecord = False
+            if uploaded_file is None:
+                createdNewRecord = True
+                uploaded_file = UploadedFile(
+                                        original_filename=file.filename,
+                                        expires_at = datetime.now(UTC) + delta if delta else None,
+                                        )
+            else:
+                uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
+
+            try:
+                if createdNewRecord:
+                    db.add(uploaded_file)
+                db.commit()
+            except Exception:
+                destination.unlink(missing_ok=True) # remove orphaned file on disk
+                db.rollback()
+                raise HTTPException(status_code=500, detail="Failed to commit to DB.")
+            
+            return {
+                "filename": file.filename,
+                "saved_to": str(destination),
+                "valid_till": uploaded_file.expires_at,
+                "submitted_at": datetime.now(UTC)
+            }
     except Exception:
         raise HTTPException(status_code=500, detail="Exception occurred during upload process.")
 
