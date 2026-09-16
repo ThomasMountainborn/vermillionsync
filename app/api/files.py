@@ -25,7 +25,7 @@ async def ping():
 @router.post("/upload")
 async def upload(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):   
     delta = timedelta(minutes=30)
-    SIZE_LIMIT = 5*1024*1024
+    SIZE_LIMIT = 10*1024*1024
     content_length = request.headers.get("content-length")
 
     if content_length and int(content_length) > SIZE_LIMIT:

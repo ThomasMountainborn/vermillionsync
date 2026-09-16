@@ -30,4 +30,4 @@ def cleanUp():
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(cleanUp, "interval", seconds=1)
+scheduler.add_job(cleanUp, "interval", minutes=1)
