@@ -1,31 +1,14 @@
 import shutil
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.db import get_db
-from app.db import engine
-from app.models.file import UploadedFile
-
-
-def get_existing_record(name: str, db: Session):
-    statement = select(UploadedFile).where(UploadedFile.original_filename == name)
-    result = db.execute(statement).scalar_one_or_none()
-    return result
 
 router = APIRouter()
 
-@router.get("/ping")
-async def ping():
-    return {"ping":"pong"}
-
 @router.post("/upload")
 async def upload(request: Request, file: UploadFile = File(...)):   
-    delta = timedelta(seconds=90)
     SIZE_LIMIT = 10*1024*1024
     content_length = request.headers.get("content-length")
 
@@ -60,54 +43,21 @@ async def upload(request: Request, file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save file")
-
-    #with Session(engine) as db:
-    #    uploaded_file = get_existing_record(file.filename, db)
-    #    createdNewRecord = False
-    #    if uploaded_file is None:
-    #        createdNewRecord = True
-    #        uploaded_file = UploadedFile(
-    #                                original_filename=file.filename,
-    #                                expires_at = datetime.now(UTC) + delta if delta else None,
-    #                                )
-    #    else:
-    #        uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
-
-     #   try:
-     #       if createdNewRecord:
-     #           db.add(uploaded_file)
-     #       db.commit()
-     #   except Exception:
-     #       destination.unlink(missing_ok=True) # remove orphaned file on disk
-     #       db.rollback()
-     #       raise HTTPException(status_code=500, detail="Failed to commit to DB.")
         
     return {
         "filename": file.filename,
         "saved_to": str(destination),
-        "valid_till": uploaded_file.expires_at,
+        "valid_till": datetime.now(UTC) + timedelta(seconds=90),
         "submitted_at": datetime.now(UTC)
     }
 
 @router.get("/download/{name}")
-async def download(name: str):#, db: Session = Depends(get_db)):
-    #statement = select(UploadedFile).where(UploadedFile.original_filename == name)
-    #file_record = db.execute(statement).scalar_one_or_none()
-
-    #if file_record is None:
-    #    raise HTTPException(status_code=404, detail="File not found")
-
-    #if file_record.expires_at and file_record.expires_at < datetime.now(UTC):
-    #    raise HTTPException(status_code=404, detail="File not found")
-
+async def download(name: str):
     path = Path("./data/uploads/") / f"{name}"
-    #filename= file_record.original_filename
     filename = name
 
-    #if not path.exists():
-    #    db.delete(file_record)
-    #    db.commit()
-    #    raise HTTPException(status_code=404, detail="File not found")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(
         path=path,
