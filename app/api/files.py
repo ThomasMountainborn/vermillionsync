@@ -1,7 +1,6 @@
 import shutil
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
-import logging
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
@@ -19,7 +18,6 @@ def get_existing_record(name: str, db: Session):
     return result
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 @router.get("/ping")
 async def ping():
@@ -63,55 +61,53 @@ async def upload(request: Request, file: UploadFile = File(...)):
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save file")
 
-    logger.info(f"File {file.filename} copied, updating database...")
-    with Session(engine) as db:
-        uploaded_file = get_existing_record(file.filename, db)
-        createdNewRecord = False
-        if uploaded_file is None:
-            createdNewRecord = True
-            logger.info("New record created")
-            uploaded_file = UploadedFile(
-                                    original_filename=file.filename,
-                                    expires_at = datetime.now(UTC) + delta if delta else None,
-                                    )
-        else:
-            logger.info("Existing record updated")
-            uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
+    #with Session(engine) as db:
+    #    uploaded_file = get_existing_record(file.filename, db)
+    #    createdNewRecord = False
+    #    if uploaded_file is None:
+    #        createdNewRecord = True
+    #        uploaded_file = UploadedFile(
+    #                                original_filename=file.filename,
+    #                                expires_at = datetime.now(UTC) + delta if delta else None,
+    #                                )
+    #    else:
+    #        uploaded_file.expires_at = datetime.now(UTC) + delta if delta else None,
 
-        try:
-            if createdNewRecord:
-                db.add(uploaded_file)
-            db.commit()
-        except Exception:
-            destination.unlink(missing_ok=True) # remove orphaned file on disk
-            db.rollback()
-            raise HTTPException(status_code=500, detail="Failed to commit to DB.")
+     #   try:
+     #       if createdNewRecord:
+     #           db.add(uploaded_file)
+     #       db.commit()
+     #   except Exception:
+     #       destination.unlink(missing_ok=True) # remove orphaned file on disk
+     #       db.rollback()
+     #       raise HTTPException(status_code=500, detail="Failed to commit to DB.")
         
-        return {
-            "filename": file.filename,
-            "saved_to": str(destination),
-            "valid_till": uploaded_file.expires_at,
-            "submitted_at": datetime.now(UTC)
-        }
+    return {
+        "filename": file.filename,
+        "saved_to": str(destination),
+        "valid_till": uploaded_file.expires_at,
+        "submitted_at": datetime.now(UTC)
+    }
 
 @router.get("/download/{name}")
-async def download(name: str, db: Session = Depends(get_db)):
-    statement = select(UploadedFile).where(UploadedFile.original_filename == name)
-    file_record = db.execute(statement).scalar_one_or_none()
+async def download(name: str):#, db: Session = Depends(get_db)):
+    #statement = select(UploadedFile).where(UploadedFile.original_filename == name)
+    #file_record = db.execute(statement).scalar_one_or_none()
 
-    if file_record is None:
-        raise HTTPException(status_code=404, detail="File not found")
+    #if file_record is None:
+    #    raise HTTPException(status_code=404, detail="File not found")
 
-    if file_record.expires_at and file_record.expires_at < datetime.now(UTC):
-        raise HTTPException(status_code=404, detail="File not found")
+    #if file_record.expires_at and file_record.expires_at < datetime.now(UTC):
+    #    raise HTTPException(status_code=404, detail="File not found")
 
     path = Path("./data/uploads/") / f"{name}"
-    filename= file_record.original_filename
+    #filename= file_record.original_filename
+    filename = name
 
-    if not path.exists():
-        db.delete(file_record)
-        db.commit()
-        raise HTTPException(status_code=404, detail="File not found")
+    #if not path.exists():
+    #    db.delete(file_record)
+    #    db.commit()
+    #    raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(
         path=path,
