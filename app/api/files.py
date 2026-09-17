@@ -1,7 +1,7 @@
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from settings import get_settings
+from app.settings import get_settings
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 
