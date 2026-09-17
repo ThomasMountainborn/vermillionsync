@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 router = APIRouter()
 
 @router.post("/upload")
-async def upload(secret: str, request: Request, file: UploadFile = File(...)):   
+async def upload(request: Request, secret: str, file: UploadFile = File(...)):   
     if secret != get_settings().api_key:
         raise HTTPException(status_code=401)
 
