@@ -1,7 +1,6 @@
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from aioshutil import copyfileobj
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
@@ -41,7 +40,7 @@ async def upload(request: Request, file: UploadFile = File(...)):
     try:
         # copy file data in chunks in bytes so huge data is not loaded into RAM
         with destination.open("wb") as buffer:
-            await aioshutil.copyfileobj(file.file, buffer)
+            shutil.copyfileobj(file.file, buffer)
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save file")
         
