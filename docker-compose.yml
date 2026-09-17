@@ -11,19 +11,5 @@ services:
       db:
         condition: service_healthy
 
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: tfs
-      POSTGRES_PASSWORD: tfs
-      POSTGRES_DB: tfs
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tfs"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
 volumes:
   pgdata:
