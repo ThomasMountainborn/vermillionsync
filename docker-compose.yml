@@ -7,9 +7,6 @@ services:
       - .env
     volumes:
       - ./data:/code/data
-    depends_on:
-      db:
-        condition: service_healthy
 
 volumes:
   pgdata:
