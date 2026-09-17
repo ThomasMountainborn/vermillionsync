@@ -10,7 +10,7 @@ router = APIRouter()
 @router.post("/upload")
 async def upload(secret: str, request: Request, file: UploadFile = File(...)):   
     if secret != get_settings().api_key:
-        return
+        raise HTTPException(status_code=401)
 
     SIZE_LIMIT = 10*1024*1024
     content_length = request.headers.get("content-length")
