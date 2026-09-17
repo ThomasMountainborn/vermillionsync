@@ -25,7 +25,7 @@ def cleanUp():
     for file in os.scandir(upload_dir):
         if file.is_dir():
             continue
-        creationTime = datetime.fromtimestamp(os.path.getctime(file.path), None)
+        creationTime = datetime.fromtimestamp(os.path.getctime(file.path), datetime.timezone.utc)
         if (now-creationTime).total_seconds > 90:
             file.path.unlink(missing_ok=True)
         ## complete filename on disk
