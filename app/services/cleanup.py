@@ -26,7 +26,7 @@ def cleanUp():
         if file.is_dir():
             continue
         creationTime = datetime.fromtimestamp(os.path.getctime(file.path), UTC)
-        if (now-creationTime).total_seconds > 90:
+        if (now-creationTime).total_seconds() > 90:
             file.path.unlink(missing_ok=True)
         ## complete filename on disk
         #name = file.original_filename
