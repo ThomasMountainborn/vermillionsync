@@ -1,14 +1,17 @@
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-
+from settings import get_settings
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 
 router = APIRouter()
 
 @router.post("/upload")
-async def upload(request: Request, file: UploadFile = File(...)):   
+async def upload(secret: str, request: Request, file: UploadFile = File(...)):   
+    if secret != get_settings().api_key:
+        return
+
     SIZE_LIMIT = 10*1024*1024
     content_length = request.headers.get("content-length")
 
@@ -52,7 +55,10 @@ async def upload(request: Request, file: UploadFile = File(...)):
     }
 
 @router.get("/download/{name}")
-async def download(name: str):
+async def download(secret: str, name: str):
+    if secret != get_settings().api_key:
+        return
+    
     path = Path("./data/uploads/") / f"{name}"
     filename = name
 
