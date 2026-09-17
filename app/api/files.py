@@ -55,10 +55,7 @@ async def upload(secret: str, request: Request, file: UploadFile = File(...)):
     }
 
 @router.get("/download/{name}")
-async def download(secret: str, name: str):
-    if secret != get_settings().api_key:
-        return
-    
+async def download(name: str):
     path = Path("./data/uploads/") / f"{name}"
     filename = name
 
